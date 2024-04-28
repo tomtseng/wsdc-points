@@ -1,0 +1,6 @@
+*.json
+*.pkl
+
+venv
+
+.*.swp
