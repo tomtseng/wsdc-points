@@ -9,9 +9,15 @@ from tqdm import tqdm
 
 url = "https://points.worldsdc.com/lookup2020/find"
 
-responses = []
-# Max ID is 23454 as of 4/28/2024, which I found by trial and error
-for i in tqdm(range(1, 23455)):
+try:
+    responses = pickle.load(open("data.pkl", "rb"))
+except FileNotFoundError:
+    responses = []
+last_id = responses[-1]["dancer_wsdcid"] if len(responses) > 0 else 0
+print(last_id)
+# Max ID is 23454 as of 4/28/2024, which I found by trial and error on the WSDC
+# website.
+for i in tqdm(range(last_id, 23455)):
     data = {"num": i}
     response = requests.post(url, data=data)
     if response.status_code == 200:
@@ -19,5 +25,5 @@ for i in tqdm(range(1, 23455)):
     # Periodically save the responses just in case things break or I get
     # rate-limited.
     if i % 100 == 0:
-        pickle.dump(responses, open("data-partial.pkl", "wb"))
+        pickle.dump(responses, open("data.pkl", "wb"))
 pickle.dump(responses, open("data.pkl", "wb"))
