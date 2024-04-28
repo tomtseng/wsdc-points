@@ -16,8 +16,6 @@ LEVEL_TO_POINTS_THRESHOLD = {
     "ALS": 150,
     "CHMP": 1e9,
 }
-NOVICE_RANK = LEVEL_TO_RANK["NOV"]
-INTERMEDIATE_RANK = LEVEL_TO_RANK["INT"]
 
 data = pickle.load(open("data.pkl", "rb"))
 dancer_infos = []
@@ -96,12 +94,11 @@ for col_1, col_2 in itertools.combinations(df.columns, 2):
     print(f"{col_1} to {col_2} in months:")
     diffs = df[col_2].dt.to_period("M") - df[col_1].dt.to_period("M")
     diffs = diffs[~diffs.isnull()].apply(lambda x: x.n).astype(int)
-    # There's weird stuff like people who got their first points in a lower
-    # division after they finished a higher division, let's cut all those people
-    # out.
-    # Also going to cut out gaps of 0 months, it's not that interesting to see
-    # all the people who finished novice by first competing in intermediate
-    # (either by petitioning, or under old point thresholds)
+    # Let's cut out people who got their first points in a lower division after
+    # they finished a higher division, etc.
+    # Also going to cut out gaps of 0 months, it's not interesting to see all
+    # the people who finished novice by first competing in intermediate (either
+    # by petitioning, or under old point thresholds).
     diffs = diffs[diffs > 0]
 
     print(
