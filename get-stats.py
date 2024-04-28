@@ -8,7 +8,14 @@ from tqdm import tqdm
 
 LEVELS = ["NEW", "NOV", "INT", "ADV", "ALS", "CHMP"]
 LEVEL_TO_RANK = {level: i for i, level in enumerate(LEVELS)}
-LEVEL_TO_POINTS_THRESHOLD = {"NOV": 16, "INT": 30, "ADV": 60, "ALS": 150, "CHMP": 1e9}
+LEVEL_TO_POINTS_THRESHOLD = {
+    "NEW": 1,
+    "NOV": 16,
+    "INT": 30,
+    "ADV": 60,
+    "ALS": 150,
+    "CHMP": 1e9,
+}
 NOVICE_RANK = LEVEL_TO_RANK["NOV"]
 INTERMEDIATE_RANK = LEVEL_TO_RANK["INT"]
 
@@ -18,17 +25,21 @@ for dancer in tqdm(data):
     main_role_info = dancer["dominate_data"]
     level = main_role_info["level"]["allowed"]
     if level not in LEVEL_TO_RANK:
-        # Invalid ranks: "PRO" (e.g., dancer 5)
+        # Ignore level "PRO", e.g., dancer 5, as I don't know how to categorize
+        # it.
         continue
     rank = LEVEL_TO_RANK[level]
-    if rank < INTERMEDIATE_RANK:
+    placements = main_role_info["placements"]
+    if isinstance(placements, list):
+        # Ignore people who somehow have no placements, e.g., dancer 3.
+        # In this case, placements is an empty list rather than a dict.
         continue
-    placements = main_role_info["placements"].get("West Coast Swing")
+    placements = placements.get("West Coast Swing")
     if placements is None:
         continue
 
     dancer_info = {"id": dancer["dancer_wsdcid"]}
-    for rank_i in range(NOVICE_RANK, rank + 1):
+    for rank_i in range(rank + 1):
         level_i = LEVELS[rank_i]
         if level_i not in placements:
             continue
@@ -58,10 +69,9 @@ for dancer in tqdm(data):
                     finish_time = maybe_finish_time
 
         dancer_info[f"{level_i}_first_point_time"] = first_point_time
-        if finish_time is not None:
+        if finish_time is not None and threshold > 1:
             dancer_info[f"{level_i}_finish_time"] = finish_time
     dancer_infos.append(dancer_info)
-
 
 
 def column_sort_key(column_name):
@@ -94,8 +104,7 @@ for col_1, col_2 in itertools.combinations(df.columns, 2):
     # (either by petitioning, or under old point thresholds)
     diffs = diffs[diffs > 0]
 
-    print(diffs.describe(
-            percentiles=[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
-        )
+    print(
+        diffs.describe(percentiles=[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99])
     )
     print()
