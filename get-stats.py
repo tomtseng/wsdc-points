@@ -61,7 +61,6 @@ for dancer in tqdm(data):
         continue
 
     dancer_info = {"id": dancer["dancer_wsdcid"]}
-    latest_point_time = None
     for rank_i in range(rank + 1):
         level_i = LEVELS[rank_i]
         if level_i not in placements:
@@ -73,15 +72,6 @@ for dancer in tqdm(data):
         cumulative_points = 0
         threshold = LEVEL_TO_POINTS_THRESHOLD[level_i]
         for result in level_results[::-1]:
-            if (
-                latest_point_time is None
-                or datetime.datetime.strptime(result["event"]["date"], "%B %Y")
-                > latest_point_time
-            ):
-                latest_point_time = datetime.datetime.strptime(
-                    result["event"]["date"], "%B %Y"
-                )
-
             cumulative_points += result["points"]
             if cumulative_points >= threshold:
                 finish_time = result["event"]["date"]
@@ -112,6 +102,7 @@ df = df[sorted(df.columns, key=column_sort_key)]
 for column in df.columns:
     df[column] = pd.to_datetime(df[column], format="%B %Y")
 
+# Plot histogram of time between first NOV point and first ALS point.
 col_1 = "NOV_first_point_time"
 col_2 = "ALS_first_point_time"
 diffs = df[col_2].dt.to_period("M") - df[col_1].dt.to_period("M")
@@ -120,11 +111,11 @@ diffs = diffs[diffs >= 0]
 plt.title(f"{col_1} to {col_2} in months, n={len(diffs)}")
 plt.xlabel("Months")
 plt.ylabel("Density")
-# Plot histogram, with y-axis normalized to 1.
 plt.hist(diffs, bins=np.arange(0, diffs.max() + 1) - 0.5, rwidth=0.8, density=True)
 plt.minorticks_on()
 plt.show()
 
+# Print out stats for all pairs of columns.
 for col_1, col_2 in itertools.combinations(df.columns, 2):
     print(f"{col_1} to {col_2} in months:")
     diffs = df[col_2].dt.to_period("M") - df[col_1].dt.to_period("M")
