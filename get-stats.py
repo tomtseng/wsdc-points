@@ -2,6 +2,7 @@ import datetime
 import itertools
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -17,6 +18,29 @@ LEVEL_TO_POINTS_THRESHOLD = {
     "CHMP": 1e9,
 }
 
+
+def column_sort_key(column_name):
+    """Sort function for dataframe columns."""
+    level = column_name.split("_")[0]
+    key = LEVEL_TO_RANK[level] * 2
+    if "first_point_time" in column_name:
+        return key
+    elif "finish_time" in column_name:
+        return key + 1
+    else:
+        raise ValueError(f"Invalid column name: {column_name}")
+
+
+def to_date(date_str):
+    """Convert a date string like "January 2020" to a datetime object."""
+    return datetime.datetime.strptime(date_str, "%B %Y")
+
+
+def get_months_between(date1, date2):
+    """Get the number of months between two dates."""
+    return (date1.year - date2.year) * 12 + date1.month - date2.month
+
+
 data = pickle.load(open("data.pkl", "rb"))
 dancer_infos = []
 for dancer in tqdm(data):
@@ -29,14 +53,15 @@ for dancer in tqdm(data):
     rank = LEVEL_TO_RANK[level]
     placements = main_role_info["placements"]
     if isinstance(placements, list):
-        # Ignore people who somehow have no placements, e.g., dancer 3.
-        # In this case, placements is an empty list rather than a dict.
+        # Ignore people who somehow have no placements, e.g., dancer 3. In this
+        # case, `placements` is an empty list rather than a dict.
         continue
     placements = placements.get("West Coast Swing")
     if placements is None:
         continue
 
     dancer_info = {"id": dancer["dancer_wsdcid"]}
+    latest_point_time = None
     for rank_i in range(rank + 1):
         level_i = LEVELS[rank_i]
         if level_i not in placements:
@@ -48,6 +73,15 @@ for dancer in tqdm(data):
         cumulative_points = 0
         threshold = LEVEL_TO_POINTS_THRESHOLD[level_i]
         for result in level_results[::-1]:
+            if (
+                latest_point_time is None
+                or datetime.datetime.strptime(result["event"]["date"], "%B %Y")
+                > latest_point_time
+            ):
+                latest_point_time = datetime.datetime.strptime(
+                    result["event"]["date"], "%B %Y"
+                )
+
             cumulative_points += result["points"]
             if cumulative_points >= threshold:
                 finish_time = result["event"]["date"]
@@ -61,34 +95,35 @@ for dancer in tqdm(data):
                 maybe_finish_time = next_level_results["competitions"][-1]["event"][
                     "date"
                 ]
-                if finish_time is None or datetime.datetime.strptime(
-                    maybe_finish_time, "%B %Y"
-                ) < datetime.datetime.strptime(finish_time, "%B %Y"):
+                if finish_time is None or to_date(maybe_finish_time) < to_date(
+                    finish_time
+                ):
                     finish_time = maybe_finish_time
 
         dancer_info[f"{level_i}_first_point_time"] = first_point_time
         if finish_time is not None and threshold > 1:
             dancer_info[f"{level_i}_finish_time"] = finish_time
+
     dancer_infos.append(dancer_info)
-
-
-def column_sort_key(column_name):
-    level = column_name.split("_")[0]
-    key = LEVEL_TO_RANK[level] * 2
-    if "first_point_time" in column_name:
-        return key
-    elif "finish_time" in column_name:
-        return key + 1
-    else:
-        raise ValueError(f"Invalid column name: {column_name}")
 
 
 df = pd.DataFrame(dancer_infos).set_index("id")
 df = df[sorted(df.columns, key=column_sort_key)]
-
-
 for column in df.columns:
     df[column] = pd.to_datetime(df[column], format="%B %Y")
+
+col_1 = "NOV_first_point_time"
+col_2 = "ALS_first_point_time"
+diffs = df[col_2].dt.to_period("M") - df[col_1].dt.to_period("M")
+diffs = diffs[~diffs.isnull()].apply(lambda x: x.n).astype(int)
+diffs = diffs[diffs >= 0]
+plt.title(f"{col_1} to {col_2} in months, n={len(diffs)}")
+plt.xlabel("Months")
+plt.ylabel("Density")
+# Plot histogram, with y-axis normalized to 1.
+plt.hist(diffs, bins=np.arange(0, diffs.max() + 1) - 0.5, rwidth=0.8, density=True)
+plt.minorticks_on()
+plt.show()
 
 for col_1, col_2 in itertools.combinations(df.columns, 2):
     print(f"{col_1} to {col_2} in months:")
@@ -96,9 +131,10 @@ for col_1, col_2 in itertools.combinations(df.columns, 2):
     diffs = diffs[~diffs.isnull()].apply(lambda x: x.n).astype(int)
     # Let's cut out people who got their first points in a lower division after
     # they finished a higher division, etc.
-    # Also going to cut out gaps of 0 months, it's not interesting to see all
-    # the people who finished novice by first competing in intermediate (either
-    # by petitioning, or under old point thresholds).
+    # Also let's cut out gaps of 0 months as it's not interesting to see all
+    # the people with a time of 0 months between NOV_finish_time and
+    # INT_first_point_time because they either petitioned or they were under old
+    # point thresholds. This is crude, but whatever.
     diffs = diffs[diffs > 0]
 
     print(
