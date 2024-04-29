@@ -36,9 +36,9 @@ def to_date(date_str):
     return datetime.datetime.strptime(date_str, "%B %Y")
 
 
-def get_months_between(date1, date2):
+def get_months_between(date_1, date_2):
     """Get the number of months between two dates."""
-    return (date1.year - date2.year) * 12 + date1.month - date2.month
+    return (date_1.year - date_2.year) * 12 + date_1.month - date_2.month
 
 
 data = pickle.load(open("data.pkl", "rb"))
