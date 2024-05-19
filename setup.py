@@ -11,6 +11,7 @@ setup(
     install_requires=[
         "jupyter >= 1.0.0", 
         "matplotlib >= 3.8.4", 
+        "numpy >= 1.26.4",
         "pandas >= 2.2.2",
         "tqdm >= 4.66.2",
     ],
