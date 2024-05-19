@@ -4,3 +4,5 @@
 venv
 
 .*.swp
+
+.ipynb_checkpoints
